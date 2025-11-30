@@ -1,12 +1,13 @@
 import streamlit as st
+from utils.startup import initialize_database
+from utils.utils import get_connection
 
-# Title of the app
-st.title("Ai&R2 - Seeking hidden talents")
+def startup():
+    initialize_database()
+    return get_connection()
 
-# Display text
-st.write("Hello, World!")
+conn = startup()
 
-# Optional: user input example
-name = st.text_input("Enter your name")
-if name:
-    st.write(f"Hello, {name}!")
+st.title("A&R Bot – Artist Discovery")
+
+st.write("This tool analyzes artists' tracks, extracts vocals, and prepares data for A&R evaluation.")

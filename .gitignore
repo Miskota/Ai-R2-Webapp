@@ -1,1 +1,8 @@
 .env
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.aiff
+*.aac
+audio/
