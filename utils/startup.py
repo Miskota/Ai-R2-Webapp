@@ -15,8 +15,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 data_dir = os.path.join(PROJECT_DIR, "data")
 
-conn = sqlite3.connect(CONN_STR)
+conn = sqlite3.connect(CONN_STR, check_same_thread=False)
 conn.execute("PRAGMA foreign_keys = ON")
+
+initialized = False
 
 artists_create_table = """
     CREATE TABLE "Artists" (
@@ -68,6 +70,11 @@ potential_talents_create_table = """
     )
 """
 def initialize_database():
+    if os.path.exists(CONN_STR):
+        print("Database already exists. Skipping initialization")
+        return
+
+    cursor = None
     try:
         cursor = conn.cursor()
         cursor.execute(artists_create_table)
@@ -78,7 +85,8 @@ def initialize_database():
     except Exception as e:
         print(f"Error while creating tables: {e}")
     finally:
-        cursor.close()
+        if cursor:
+            cursor.close()
 
     for file_name, table in [
         ("Artists.csv", "Artists"),
@@ -90,7 +98,6 @@ def initialize_database():
         df.to_sql(table, conn, if_exists="append", index=False)
 
     print("Database initiated and filled successfully")
-    conn.close()
 
 if __name__ == "__main__":
     initialize_database()
