@@ -1,0 +1,8 @@
+demucs,
+torch,
+torchaudio,
+db-sqlite3,
+dotenv,
+pandas,
+librosa,
+keras-models
