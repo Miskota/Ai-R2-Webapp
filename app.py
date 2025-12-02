@@ -1,13 +1,46 @@
 import streamlit as st
 from utils.startup import initialize_database
-from utils.utils import get_connection
+from utils.utils import get_connection, get_random_artists, hit_predictor
+import pandas as pd
 
-def startup():
+if "db_initialized" not in st.session_state:
     initialize_database()
-    return get_connection()
+    st.session_state.db_initialized = True
 
-conn = startup()
+if "conn" not in st.session_state:
+    st.session_state.conn = get_connection()
 
-st.title("A&R Bot – Artist Discovery")
+conn = st.session_state.conn
 
+st.title("A&R Bot - Artist Discovery")
 st.write("This tool analyzes artists' tracks, extracts vocals, and prepares data for A&R evaluation.")
+
+# Todo
+# Plan
+# Press button -> Show dataframe (Dynamically updates between calculation stages)
+# ArtistId | Name | Hit Chance (%) | Singing Performance | Overall Score |
+# 1        | John |   Not Ready    |         Not Ready   |   Not Ready   |   
+# 1        | John |      76.53     |         Not Ready   |   Not Ready   |
+# 1        | John |      76.53     |          4.5        |   Not Ready   |
+# 1        | John |      76.53     |          4.5        |      80       |
+
+if st.button("Select 10 Random Aritsts"):
+    df_artists = get_random_artists(conn, 10)
+
+    st.subheader("Selected Artists & Tracks")
+    st.dataframe(df_artists)
+
+    streaming_features = [
+        "danceability", "energy", "key", "loudness", "mode",
+        "speechiness", "acousticness", "instrumentalness",
+        "liveness", "valence", "tempo", "duration_ms",
+        "time_signature", "chorus_hit", "sections"
+    ]
+
+    X_pred = df_artists[streaming_features]
+
+    st.subheader("Streaming Features for Prediction")
+    st.dataframe(X_pred)
+
+    scores = hit_predictor(df_artists, streaming_features)
+    print(scores)
