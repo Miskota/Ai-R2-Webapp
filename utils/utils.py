@@ -8,7 +8,9 @@ import subprocess
 from pathlib import Path
 from demucs import pretrained
 from demucs.apply import apply_model
+from transformers import AutoProcessor, WavLMModel
 import torchaudio
+import io
 import pandas as pd
 from tensorflow.keras.models import load_model
 import torch
@@ -65,6 +67,8 @@ def get_random_artists(conn, limit=10):
     """
     return pd.read_sql_query(query, conn)
 
+
+
 def hit_predictor(df: pd.DataFrame, feature_columns: list):
     scaler_path = os.path.join(MODELS_DIR, "scaler.pkl")
     scaler = joblib.load(scaler_path)
@@ -82,34 +86,5 @@ def hit_predictor(df: pd.DataFrame, feature_columns: list):
     pred_percent = predictions * 100
     pred_percent = pred_percent.round(2)
 
-    return pred_percent
-
-def extract_vocals(input_wav: str, output_dir: str = "./vocals") -> str:
-    input_wav = Path(input_wav)
-    output_dir = Path(output_dir)
-
-    if not input_wav.exists():
-        raise FileNotFoundError(f"Input file not found: {input_wav}")
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Load audio
-    wav, sr = torchaudio.load(input_wav)
-
-    # Load pre-trained model
-    model = pretrained.get_model("htdemucs")
-    model.to("cuda" if torch.cuda.is_available() else "cpu")
-    model.eval()
-
-    # Apply model
-    with torch.no_grad():
-        results = apply_model(model, wav.unsqueeze(0), sr)
-
-    # Extract vocals track
-    vocals = results[0][model.sources.index("vocals")]
-
-    # Save file
-    output_path = output_dir / f"{input_wav.stem}_vocals.wav"
-    torchaudio.save(output_path, vocals.cpu(), sr)
-
-    return str(output_path)
+    #return pred_percent
+    return predictions
