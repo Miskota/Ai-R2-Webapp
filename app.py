@@ -27,7 +27,7 @@ st.write("This tool analyzes artists' tracks, extracts vocals, and prepares data
 # 1        | John |      76.53     |          4.5        |      80       |
 table_placeholder = st.empty()
 
-if st.button("Select 10 Random Aritsts"):
+if st.button("Select 10 Random Artists"):
     df_artists = get_random_artists(conn, 10)
 
     df_artists_display = df_artists[["Name"]].copy()
