@@ -1,6 +1,8 @@
 import streamlit as st
 from utils.startup import initialize_database
 from utils.utils import get_connection, get_random_artists, hit_predictor
+from utils.predict_mos import batch_predict_mos
+from pathlib import Path
 import pandas as pd
 
 if "db_initialized" not in st.session_state:
@@ -44,3 +46,19 @@ if st.button("Select 10 Random Aritsts"):
 
     scores = hit_predictor(df_artists, streaming_features)
     print(scores)
+
+    if "FileName" not in df_artists.columns:
+        st.warning("df_artists does not have a 'FileName' column.")
+    else:
+        # Construct full paths if needed
+        audio_base = Path("audio")  # change to your audio folder
+        file_list = [audio_base / f for f in df_artists["FileName"]]
+
+        # Batch predict MOS
+        mos_dict = batch_predict_mos(file_list, base_dir=None)
+        mos_dict = {Path(k).name: v for k, v in mos_dict.items()}
+        print(mos_dict)
+        # Add MOS to df_artists
+        df_artists["Singing Performance"] = df_artists["FileName"].map(mos_dict)
+
+        st.dataframe(df_artists[["ArtistId", "Name", "FileName", "Singing Performance"]])
