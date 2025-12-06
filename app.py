@@ -1,17 +1,21 @@
 import streamlit as st
-from utils.startup import initialize_database
-from utils.utils import get_connection, get_random_artists, hit_predictor, get_all_artists
+#from utils.startup import initialize_database
+from utils.utils import get_connection, get_random_artists, hit_predictor, get_all_artists, export_to_table
 from utils.predict_mos import batch_predict_mos
 import time
 from pathlib import Path
 import pandas as pd
 
 if "db_initialized" not in st.session_state:
-    initialize_database()
+    #initialize_database()
     st.session_state.db_initialized = True
+
+if "df_artists_selected" not in st.session_state:
+    st.session_state.df_artists_selected = None
 
 if "conn" not in st.session_state:
     st.session_state.conn = get_connection()
+
 
 conn = st.session_state.conn
 
@@ -26,6 +30,8 @@ with st.sidebar:
 
     run_random_button = st.button("🎲 Select Random Artists")
     show_all_button = st.button("📚 Show Full Database")
+    export_button = st.button("📋 Create Reporting Table")
+    view_report = st.button("📖 View Last Report")
 
 st.title("Ai&R2 Bot - Artist Discovery")
 st.write("This tool analyzes artists' tracks, extracts vocals, and prepares data for A&R evaluation.")
@@ -58,7 +64,7 @@ if run_random_button:
     progress.progress(20, text=" Selecting artists...")
     df_artists = get_random_artists(conn, 10)
 
-    df_artists_display = df_artists[["Name"]].copy()
+    df_artists_display = df_artists[["ArtistId", "Name"]].copy()
     df_artists_display["Singing Performance"] = "Not ready"
     df_artists_display["Hit Chance (%)"] = "Not ready"
     df_artists_display["Overall Score"] = "Not ready"
@@ -129,33 +135,21 @@ if run_random_button:
     elapsed = round(time.time() - start, 2)
     progress.progress(100, text=f"Done! ({elapsed}s)")
 
-    # streaming_features = [
-    #     "danceability", "energy", "key", "loudness", "mode",
-    #     "speechiness", "acousticness", "instrumentalness",
-    #     "liveness", "valence", "tempo", "duration_ms",
-    #     "time_signature", "chorus_hit", "sections"
-    # ]
+    n_top = int(len(df_artists_display) * 0.1) or 1
+    st.session_state.df_artists_selected = df_artists_display.nlargest(n_top, "Overall Score")
 
-    # X_pred = df_artists[streaming_features]
+if export_button:
+    if st.session_state.df_artists_selected is not None and len(st.session_state.df_artists_selected) > 0:
+        export_to_table(st.session_state.df_artists_selected, conn)
+        subheader_placeholder.subheader("Data exported successfully.")
+    else:
+        subheader_placeholder.subheader("No data to export. Run a talent search first.")
 
-    # st.subheader("Streaming Features for Prediction")
-    # st.dataframe(X_pred)
-
-    # scores = hit_predictor(df_artists, streaming_features)
-    # print(scores)
-
-    # if "FileName" not in df_artists.columns:
-    #     st.warning("df_artists does not have a 'FileName' column.")
-    # else:
-    #     # Construct full paths if needed
-    #     audio_base = Path("audio")  # change to your audio folder
-    #     file_list = [audio_base / f for f in df_artists["FileName"]]
-
-    #     # Batch predict MOS
-    #     mos_dict = batch_predict_mos(file_list, base_dir=None)
-    #     mos_dict = {Path(k).name: v for k, v in mos_dict.items()}
-    #     print(mos_dict)
-    #     # Add MOS to df_artists
-    #     df_artists["Singing Performance"] = df_artists["FileName"].map(mos_dict)
-
-    #     st.dataframe(df_artists[["ArtistId", "Name", "FileName", "Singing Performance"]])
+if view_report:
+    df = pd.read_sql(
+        sql="""SELECT * FROM "Candidates";""",
+        con=conn
+    )
+    subheader_placeholder.subheader("Last report's results")
+    table_placeholder.dataframe(df)
+    

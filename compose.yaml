@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: anr_db
+    volumes:
+      - ./data:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+
+  webapp:
+    build:
+      context: .
+      dockerfile: dockerfile
+    volumes:
+      - ./models:/app/models
+      - ./audio:/app/audio
+    ports:
+      - "8501:8501"
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: user
+      DATABASE_PASSWORD: password
+      DATABASE_NAME: anr_db
+    depends_on:
+      - db
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - db

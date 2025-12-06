@@ -23,6 +23,9 @@ RUN pip install torch==2.0.0+cpu torchaudio==2.0.1+cpu --extra-index-url https:/
 RUN pip install --no-cache-dir -r requirements.txt
 
 #COPY . .
+COPY app.py /app/
+COPY utils /app/utils/
+COPY models /app/models/
 
 EXPOSE 8501
 
