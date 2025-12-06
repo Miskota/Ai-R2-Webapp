@@ -67,7 +67,19 @@ def get_random_artists(conn, limit=10):
     """
     return pd.read_sql_query(query, conn)
 
-
+def get_all_artists(conn):
+    query = """
+        SELECT a.ArtistId, a.Name, t.TrackId, t.FileName,
+               s.danceability, s.energy, s.key, s.loudness, s.mode,
+               s.speechiness, s.acousticness, s.instrumentalness,
+               s.liveness, s.valence, s.tempo, s.duration_ms,
+               s.time_signature, s.chorus_hit, s.sections
+        FROM Artists a
+        INNER JOIN Tracks t ON t.ArtistId = a.ArtistId
+        INNER JOIN StreamingData s ON s.TrackId = t.TrackId
+        ORDER BY a.Name ASC;
+    """
+    return pd.read_sql_query(query, conn)
 
 def hit_predictor(df: pd.DataFrame, feature_columns: list):
     scaler_path = os.path.join(MODELS_DIR, "scaler.pkl")

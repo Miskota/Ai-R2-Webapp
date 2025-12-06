@@ -1,7 +1,8 @@
 import streamlit as st
 from utils.startup import initialize_database
-from utils.utils import get_connection, get_random_artists, hit_predictor
+from utils.utils import get_connection, get_random_artists, hit_predictor, get_all_artists
 from utils.predict_mos import batch_predict_mos
+import time
 from pathlib import Path
 import pandas as pd
 
@@ -14,6 +15,18 @@ if "conn" not in st.session_state:
 
 conn = st.session_state.conn
 
+st.set_page_config(
+    page_title="Ai&R2 Artist Discovery",
+    page_icon="🎵",
+    layout="wide"
+)
+
+with st.sidebar:
+    st.header("⚙️ Controls")
+
+    run_random_button = st.button("🎲 Select Random Artists")
+    show_all_button = st.button("📚 Show Full Database")
+
 st.title("Ai&R2 Bot - Artist Discovery")
 st.write("This tool analyzes artists' tracks, extracts vocals, and prepares data for A&R evaluation.")
 
@@ -25,9 +38,24 @@ st.write("This tool analyzes artists' tracks, extracts vocals, and prepares data
 # 1        | John |      76.53     |         Not Ready   |   Not Ready   |
 # 1        | John |      76.53     |          4.5        |   Not Ready   |
 # 1        | John |      76.53     |          4.5        |      80       |
+subheader_placeholder = st.empty()
 table_placeholder = st.empty()
+progress = st.progress(0)
 
-if st.button("Select 10 Random Artists"):
+if show_all_button:
+    df_all = get_all_artists(conn)
+
+    subheader_placeholder.subheader("📚 Full Artist Database")
+    table_placeholder.dataframe(
+        df_all,
+        use_container_width=True,
+        hide_index=True
+    )
+
+if run_random_button:
+    start = time.time()
+    subheader_placeholder.subheader("Selected Artists & Tracks")
+    progress.progress(20, text=" Selecting artists...")
     df_artists = get_random_artists(conn, 10)
 
     df_artists_display = df_artists[["Name"]].copy()
@@ -43,6 +71,7 @@ if st.button("Select 10 Random Artists"):
     audio_base = Path("audio")
     file_list = [audio_base / f for f in df_artists["FileName"]]
 
+    progress.progress(45, text=" Running MOS vocal quality prediction...")
     mos_dict = batch_predict_mos(file_list)
     mos_dict = {Path(k).name: round(v, 2) for k, v in mos_dict.items()}
 
@@ -59,6 +88,7 @@ if st.button("Select 10 Random Artists"):
         "liveness", "valence", "tempo", "duration_ms",
         "time_signature", "chorus_hit", "sections"
     ]
+    progress.progress(75, text=" Predicting hit chance...")
     scores = hit_predictor(df_artists, streaming_features)
     scores_clean = {Path(f).name: score for f, score in zip(df_artists["FileName"], scores)}
     df_artists_display["Hit Chance (%)"] = df_artists["FileName"].map(scores_clean)
@@ -67,7 +97,7 @@ if st.button("Select 10 Random Artists"):
     table_placeholder.dataframe(df_artists_display)
 
 
-
+    progress.progress(100, text=" Finalizing scores...")
     normalized_mos = (df_artists_display["Singing Performance"]) / 5
     normalized_chance = df_artists_display["Hit Chance (%)"] / 100
     df_artists_display["Overall Score"] = (0.6 * normalized_mos + 0.4 * normalized_chance).round(2)
@@ -95,7 +125,9 @@ if st.button("Select 10 Random Artists"):
             "Overall Score": "{:.2f}"
         })
         .apply(lambda x: highlight_top_10(x, df_artists_display), axis=0)
-)
+    )
+    elapsed = round(time.time() - start, 2)
+    progress.progress(100, text=f"Done! ({elapsed}s)")
 
     # streaming_features = [
     #     "danceability", "energy", "key", "loudness", "mode",
