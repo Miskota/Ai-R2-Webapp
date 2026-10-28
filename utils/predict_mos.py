@@ -95,7 +95,8 @@ def batch_predict_mos(file_list, base_dir=None):
 def demucs_extract_vocals(wav_bytes, model_name="htdemucs"):
     #buffer = io.BytesIO(wav_bytes)
     #waveform, sr = torchaudio.load(buffer)
-    waveform, sr = load_wav_bytes(wav_bytes)
+    # htdemucs is trained on 44.1 kHz audio; separate at its rate, resample to 16 kHz afterwards
+    waveform, sr = load_wav_bytes(wav_bytes, target_sr=demucs_model.samplerate)
 
     if waveform.shape[0] == 1:
         waveform = waveform.repeat(2, 1)

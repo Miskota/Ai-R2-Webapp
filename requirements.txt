@@ -8,7 +8,7 @@ tensorflow
 keras
 numpy==1.26.4
 torchcodec==0.8.1
-transformers==4.41.0
+transformers==5.20.1
 scikit-learn
 soundfile
 datasets

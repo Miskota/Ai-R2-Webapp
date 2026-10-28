@@ -2,6 +2,7 @@ import streamlit as st
 #from utils.startup import initialize_database
 from utils.utils import get_connection, get_random_artists, hit_predictor, get_all_artists, export_to_table
 from utils.predict_mos import batch_predict_mos
+import math
 import time
 from pathlib import Path
 import pandas as pd
@@ -79,7 +80,7 @@ if run_random_button:
 
     progress.progress(45, text=" Running MOS vocal quality prediction...")
     mos_dict = batch_predict_mos(file_list)
-    mos_dict = {Path(k).name: round(v, 2) for k, v in mos_dict.items()}
+    mos_dict = {Path(k).name: v for k, v in mos_dict.items()}
 
     df_artists_display["Singing Performance"] = df_artists["FileName"].map(mos_dict)
     #st.subheader("After MOS Prediction")
@@ -98,29 +99,22 @@ if run_random_button:
     scores = hit_predictor(df_artists, streaming_features)
     scores_clean = {Path(f).name: score for f, score in zip(df_artists["FileName"], scores)}
     df_artists_display["Hit Chance (%)"] = df_artists["FileName"].map(scores_clean)
-    df_artists_display["Hit Chance (%)"] = (df_artists_display["Hit Chance (%)"] * 100).round(2)
+    df_artists_display["Hit Chance (%)"] = df_artists_display["Hit Chance (%)"] * 100
     #st.subheader("After Hit Chance Prediction")
     table_placeholder.dataframe(df_artists_display)
 
 
     progress.progress(100, text=" Finalizing scores...")
-    normalized_mos = (df_artists_display["Singing Performance"]) / 5
+    normalized_mos = df_artists_display["Singing Performance"].clip(1, 5) / 5
     normalized_chance = df_artists_display["Hit Chance (%)"] / 100
-    df_artists_display["Overall Score"] = (0.6 * normalized_mos + 0.4 * normalized_chance).round(2)
+    # Unrounded scores for ranking; rounding is display-only
+    df_artists_display["Overall Score"] = 0.6 * normalized_mos + 0.4 * normalized_chance
 
-    # Sort ascending by overall score
-    df_artists_display = df_artists_display.sort_values("Overall Score", ascending=False)
-    table_placeholder.dataframe(df_artists_display)
+    # Sort descending by overall score, ties -> higher singing score
+    df_artists_display = df_artists_display.sort_values(["Overall Score", "Singing Performance"], ascending=False)
+    n_top = math.ceil(len(df_artists_display) * 0.1)
+    selected = df_artists_display.head(n_top)
 
-    def highlight_top_10(val, df):
-        # Ensure the column is numeric
-        overall_scores = pd.to_numeric(df["Overall Score"], errors='coerce')
-        threshold = overall_scores.quantile(0.9)
-        return [
-            "background-color: green" if pd.notna(v) and v >= threshold else ""
-            for v in overall_scores
-        ]
-    
 
     #st.subheader("Final Results with Overall Score")
     table_placeholder.dataframe(
@@ -130,13 +124,12 @@ if run_random_button:
             "Hit Chance (%)": "{:.2f}",
             "Overall Score": "{:.2f}"
         })
-        .apply(lambda x: highlight_top_10(x, df_artists_display), axis=0)
+        .apply(lambda row: ["background-color: green" if row.name in selected.index else ""] * len(row), axis=1)
     )
     elapsed = round(time.time() - start, 2)
     progress.progress(100, text=f"Done! ({elapsed}s)")
 
-    n_top = int(len(df_artists_display) * 0.1) or 1
-    st.session_state.df_artists_selected = df_artists_display.nlargest(n_top, "Overall Score")
+    st.session_state.df_artists_selected = selected
 
 if export_button:
     if st.session_state.df_artists_selected is not None and len(st.session_state.df_artists_selected) > 0:
